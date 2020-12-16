@@ -4,6 +4,10 @@ Created on Sat Oct 31 00:36:56 2020
 
 @author: Admin
 """
+###############################################################################
+# 크롤링 수업 ################################################
+###############################################################################
+
 
 from bs4 import BeautifulSoup
 from urllib.robotparser import RobotFileParser
@@ -403,55 +407,312 @@ newUrls
 
 #%% 로그인하기
 driver = webdriver.Chrome('chromedriver/chromedriver.exe')
-driver.get('https://www.jobplanet.co.kr/welcome/index')
+
+# 이동
+driver.get('https://www.naver.com')
 # dir(driver.find_element_by_class_name('link_login'))
 
+#%% 설명
+ 공통적으로 사용할수있는 것 : find_element_by_css_selector
+driver.find_element_by_class_name('link_login') --> webElement객체
+dir(driver.find_element_by_class_name('link_login'))
+ --> is_displayed, is_enabled, is_selected : 드랍다운이나 셀렉이 돼있는지 체크하므로
+ 자동화 할 때 중요한 애들
+ --> click() : 마우스로 클릭
+ --> send_keys() : 입력
+ --> clear() : 비우기
+#%% 코드 
+driver.find_element_by_class_name('link_login').text
 driver.find_element_by_class_name('link_login').click()
 #%%
 with open('account.json') as f:
     account = json.load(f)
+#%%    
+#%% 설명
+. => 현재위치
+/ => root
+/ => 자식
+// => 자손
+[@class='속성']
+#%% 코드
+driver.find_element_by_xpath('//input[@id="id"]').tag_name  # input : 태그이름
+driver.find_element_by_xpath('//input[@id="id"]').get_attribute('placeholder')
+driver.find_element_by_xpath('//span/input').get_attribute('placeholder')  # span 자식 중의 input
+driver.find_element_by_xpath('//span/input').tag_name
+#%% 설명
+driver.find_element_by_xpath('//span/input') : 자손중 span부터
+driver.find_element_by_xpath('/span/input') : 자식 span부터
+for _ in driver.get_cookies():
+    print(_['name'], _['value'])
 #%%
-# . => 현재위치
-# / => root
-# / => 자식
-# // => 자손
-# [@class='속성']
-#%%
-driver.find_element_by_xpath('//input[@id="id"]').tag_name
-driver.find_element_by_xpath('//span/input').get_attribute('placeholder')
-
+driver.find_element_by_id('id').get_attribute('placeholder')
+driver.find_element_by_css_selector('#id').get_attribute('placeholder')
+#%% 코드 dom을 써도 된다.
+from bs4 import BeautifulSoup
 dom = BeautifulSoup(driver.page_source, 'html.parser')
 dom.select_one('#id').find_parent().find_parent().find_parent().find_parent() #비밀번호 태그 위치 찾기
-#%% id, pw 넣기
+#%% 코드
+# xpath로 찾기
+driver.find_element_by_xpath('//input[@id="id"]').clear()
+driver.find_element_by_xpath('//input[@id="id"]').send_keys(account['id'])
+
+# css_selector로 찾기
 driver.find_element_by_css_selector('#id').clear() #id clear하기
-driver.find_element_by_css_selector('#id').send_keys(account['id']) #id 넣기
+driver.find_element_by_css_selector('#id').send_keys('cardchan') #id 넣기
+
+# id로 찾기
 driver.find_element_by_id('pw').clear() #pw clear하기
-driver.find_element_by_id('pw').send_keys(account['password']) #pw 넣기
+driver.find_element_by_id('pw').send_keys('fjrzlaos22') #pw 넣기
 #%% 로그인버튼 클릭
 driver.find_element_by_css_selector('input[type=submit][id]').get_attribute('id') # [id] : id라는 속성을 가진 태그
 driver.find_element_by_css_selector('input[type=submit][id]').click()
+#%% 쿠키를 얻을 때 쓸 수도 있다.
+for _ in driver.get_cookies():
+    print(_['name'], _['value'])
+#%%
+import re
+
+#메일함으로 이동
+driver.get('http://mail.naver.com')
+
+#돔 객체 만들기
+dom = BeautifulSoup(driver.page_source, 'html.parser')
+
+# 메일 제목들 가져오기
+dom.find(text=re.compile('카카오')).find_parent().find_parent().find_parent()
+
+driver.find_element_by_xpath('//div[@class="mTitle"]').text
+
+driver.find_element_by_xpath('//ol//li//div[@class="mTitle"]').text
+
+# 모든 태그 가져오기  : elements
+for _ in driver.find_elements_by_xpath('//ol//li//div[@class="mTitle"]'):
+    print(_.text)
 
 
 
+###############################################################################
+# 사회연결망 한국음원저작권협회 크롤링 ################################################
+###############################################################################
+
+from selenium import webdriver
+from bs4 import BeautifulSoup
+from urllib.robotparser import RobotFileParser
+from requests.compat import urlparse, urljoin
+from urllib.request import urlopen, Request
+import requests
+from requests.exceptions import HTTPError
+import time
+import re
+import pandas as pd
+#%%############################################################################
+def get_singer(t):
+    
+    try:
+        pattern1 = re.compile('\[(.+)\]')
+        result = re.search(pattern1, t)
+        pattern2 = re.compile(':(.+)')
+        result2 = re.search(pattern2, result.group(1))
+        answer = result2.group(1)
+        
+    except AttributeError as e:
+        answer = ''
+        
+    return answer
+
+#%%############################################################################
+def get_launching_date(t):
+    
+    try:
+        pattern = re.compile('\d{4}[-]\d{2}[-]\d{2}')
+        result = re.search(pattern, t)
+        answer = result.group()
+    except AttributeError as e:
+        answer = ''
+    
+    return answer
+
+#%%############################################################################
+def get_title(t):
+    try:
+        result = re.search(r'[]](.+)[-]', t)
+        answer = result.group(1).strip()
+    except AttributeError as e:
+        answer = ''
+        
+    return answer
+
+#%%############################################################################
+driver = webdriver.Chrome('D:/GoogleDriveSync/16_github_repos/Crawling/chromedriver.exe')
+driver.get('https://www.komca.or.kr/srch2/srch_01.jsp')
+
+#%%############################################################################
+def update_singer(singer_nm):
+    driver.find_element_by_css_selector('#singer').clear() #id clear하기
+    driver.find_element_by_css_selector('#singer').send_keys('{}'.format(singer_nm)) #id 넣기
+    driver.find_element_by_css_selector('.btn.black').click()
+
+#%%############################################################################
+def remove_comma(t):
+    return t.replace(',', '')
+
+#%%############################################################################
+# 크롤
+
+# tag1, tag2
+# tag1 tag2 => 자손 (find_all(recursive=True))
+# tag1 > tag2 => 자식 (find_all(recursive=False))
+# tag1 + tag2 => 형제(다음노드) => tag2
+
+def get_data():
+    dom = BeautifulSoup(driver.page_source, 'html.parser')
+    total_song_n = int(remove_comma(dom.select_one('.result_total > span').text))
+    if total_song_n % 10 == 0:
+        pagenum = total_song_n // 10
+    else:
+        pagenum = total_song_n // 10 + 1
+        
+    for page in range(1, pagenum+1):
+        # print('****************************************page : {}'.format(page))
+        dom = BeautifulSoup(driver.page_source, 'html.parser')
+        i = 1
+        for box in dom.select('.result_article'):
+            title = get_title(box.select_one('.tit2').text.strip())
+            singer = get_singer(box.select_one('.works_info dd > p:nth-of-type(2)').text.strip())
+            date = get_launching_date(box.select_one('.metadata').text.strip())
+            # print('저작물명 : {}'.format(title))
+            # print('가수명 : {}'.format(singer))
+            # print('공표일자 : {}'.format(date))
+            d['저작물명'].append(title)
+            d['가수명'].append(singer)
+            d['공표일자'].append(date)
+            #작사가, 작곡가
+            l = ''
+            c = ''
+            for tr in box.select('tbody > tr'):
+                if tr.select_one('td').text.strip() == 'A':
+                    lyricist = tr.select_one('td:nth-of-type(2)').text.strip()
+                    # print('lyricist : {}'.format(lyricist))
+                    if l == '':
+                        l += lyricist
+                    else:
+                        l += ', ' + lyricist
+                elif tr.select_one('td').text.strip() == 'C':
+                    composer = tr.select_one('td:nth-of-type(2)').text.strip()
+                    # print('composer : {}'.format(composer))
+                    if c == '':
+                        c += composer
+                    else:
+                        c += ', ' + composer
+            d['작사가'].append(l)
+            d['작곡가'].append(c)
+            # print('------------------------------{}'.format(i))
+            i+=1
+        print('page : {} / {}'.format(page, pagenum))
+        #다음 페이지 클릭
+        if page%10 == 0:
+            driver.find_element_by_css_selector('.pagination > a:nth-of-type({})'.format(3)).click()        
+        elif page == pagenum:
+            # print('page : {}'.format(page))
+            # print('pagenum : {}'.format(pagenum))
+            break
+        else:
+            driver.find_element_by_css_selector('.pagination > span > a:nth-of-type({})'.format(page % 10 + 1)).click()    
+        time.sleep(1)        
+#%%############################################################################
+d = {
+     '가수명' : [],
+     '저작물명' : [],
+     '공표일자' : [],
+     '작곡가' : [],
+     '작사가' : []
+     }
+
+#%%############################################################################
+singer_n = len(singers)
+for idx, singer in enumerate(singers):
+    print('singer = {}, index = {}/{}'.format(singer, idx, singer_n))
+    update_singer(singer)
+    time.sleep(1)
+    get_data()
+
+#%% 박건 빼고 다시, 박정민빼고 다시, 비 부터 다시 #################################
+
+for idx, singer in enumerate(singers[35:]):
+    print('singer = {}, index = {}/{}'.format(singer, idx+124, singer_n))
+    update_singer(singer)
+    time.sleep(3)
+    get_data()
+
+#%% 데이터 저장 ################################################################
+df = pd.DataFrame(d)
+df.to_csv('data/저작물데이터.csv')
+
+
+###############################################################################
+# 비정형데이터 잡플래닛 수집 ################################################
+###############################################################################
 
 
 
+import requests
+from bs4 import BeautifulSoup
+import pandas as pd
+import re
+import json
 
+#%%
+all_corp = pd.read_csv('all_corp.csv')
 
+low_corps = all_corp.loc[(all_corp['cor_rating'] <= 2.1) & (all_corp['nreview'] >= 50), :][:50]
+low_corps.reset_index(drop=True, inplace=True)
+#%%
+with open('account.json') as f:
+    account = json.load(f)
+#%%
+member_data = {'user[email]': account['id'], 'user[password]': account['password']}
+with requests.Session() as s:
+    request = s.post('https://www.jobplanet.co.kr/users/sign_in?_nav=gb', data=member_data)
+target_page = 'https://www.jobplanet.co.kr/companies/{}/reviews/{}?page={}&review_type=|D=cardchan@naver.com'
+#%%
+pattern_title = re.compile(r'\"(.+)\"')
+d2 = {
+      'name': [],
+      'total_score': [],
+      'duty': [],
+      'work_status': [],
+      'date': [],
+      'title': [],
+      'pros': [],
+      'cons': [],
+      'wish': [],
+      'like': []
+      }
 
+for _ in range(len(low_corps)):
+    page_num = low_corps['nreview'][_]//5 + 1
+    for page in range(page_num):
+        url = target_page.format(low_corps['cor_id'][_], low_corps['cor_name'][_], page+1)
+        request = s.get(url)
+        dom = BeautifulSoup(request.text, 'html.parser')
+        print(dom.select_one('.company_info_box .company_name').text.strip(), page+1)
+        # print(url)
+        name = dom.select_one('.company_info_box a').text
+        for box in dom.select('.content_wrap'):
+            d2['name'].append(name)
+            d2['total_score'].append(box.select_one('.star_score')['style'])
+            d2['duty'].append(box.select_one('.content_top_ty2 > span:nth-of-type(2)').text)
+            d2['work_status'].append(box.select_one('.content_top_ty2 > span:nth-of-type(4)').text)
+            d2['date'].append(box.select_one('.content_top_ty2 .txt2').text)
+            d2['title'].append(pattern_title.search(box.select_one('.us_label').text).group(1))
+            d2['pros'].append(box.select_one('.merit + .df1').text.strip())
+            d2['cons'].append(box.select_one('.disadvantages + .df1').text.strip())
+            d2['wish'].append(box.select_one('.content_body_ty1 dd:nth-of-type(3)').text.strip())
+            d2['like'].append(box.select_one('.notranslate').text)
 
-
-
-
-
-
-
-
-
-
-
-
-
+#%%
+data_low_comp = pd.DataFrame(d2)
+data_low_comp.to_csv('data_low_comp.csv', encoding='utf-8-sig')
 
 
 
