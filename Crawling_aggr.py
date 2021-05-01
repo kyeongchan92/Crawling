@@ -142,9 +142,9 @@ def download(url, params={}, headers={}, method='GET', limit=3):
             print(e.response.reason)
             print(e.response.headers)
     return resp
+
+
 #%%
-
-
 resp = download('http://pythonscraping.com/pages/page3.html')
 dom = BeautifulSoup(resp.content, 'html.parser')
 #%%
@@ -597,6 +597,7 @@ def get_data():
                         l += lyricist
                     else:
                         l += ', ' + lyricist
+                        
                 elif tr.select_one('td').text.strip() == 'C':
                     composer = tr.select_one('td:nth-of-type(2)').text.strip()
                     # print('composer : {}'.format(composer))
